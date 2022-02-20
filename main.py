@@ -1,4 +1,4 @@
-# pip3 install pystan=2.19.1.1 streamlit fbprophet yfinance plotly
+# pip3 install pandas matplotlib pystan=2.19.1.1 streamlit fbprophet yfinance plotly seaborn pyplot
 # http://lethalletham.com/ForecastingAtScale.pdf
 import streamlit as st
 from datetime import date
@@ -10,7 +10,7 @@ from plotly import graph_objs as go
 
 st.title('Crypto Price Forecast Application: Cryptopiens.tech')
 
-START = st.date_input("State the starting date", date(2020, 1, 1))
+START = st.date_input("State the starting date", date(2021, 1, 1))
 START = START.strftime("%Y-%m-%d")
 st.write('The system starts at:', START)
 #START = "2021-01-01"
@@ -26,6 +26,9 @@ period = n_quarters * 3 * 30
 
 budget = st.number_input('Insert your budget')
 st.write('Your budget is: ', budget)
+
+risk_allowance = st.number_input('Insert your risk allowance')
+st.write('Your risk allowance is: ', risk_allowance)
 
 @st.cache
 def load_data(ticker):
@@ -90,11 +93,18 @@ def suggest(crypto):
 		future = m.make_future_dataframe(periods=period)
 		forecast = m.predict(future)
 		forecast['change'] = forecast['yhat'] = forecast['yhat'] - forecast['yhat'].shift(-1)
-		forecasts.append(forecast['yhat'])
-		sb.lineplot(x="ds", y="change", data=forecast) 	
+		forecast_history = forecast[forecast['ds'] <= TODAY]
+		forecast_history = forecast_history[forecast_history['change'] <= 0]
+		risk = forecast_history.shape[0] / forecast.shape[0] * 100
+		st.write("The risk factor of ", coin, " is ", risk, "%")
+		if risk < risk_allowance:
+			forecast_mask=forecast['ds']>=TODAY
+			forecast_filtered = forecast[forecast_mask]
+			sb.lineplot(x="ds", y="change", data=forecast_filtered) 	
 
 suggest(crypto)
 
 plt.ylabel("Change in predicted price") 
 plt.legend(labels=crypto)
+plt.savefig('predictSuggest.png')
 st.write(fig3)
